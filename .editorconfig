@@ -1,0 +1,24 @@
+# Copyright 2025 Shota FUJI
+#
+# This source code is licensed under Zero-Clause BSD License.
+# You can find a copy of the Zero-Clause BSD License at LICENSES/0BSD.txt
+# You may also obtain a copy of the Zero-Clause BSD License at
+# <https://opensource.org/license/0bsd>
+#
+# SPDX-License-Identifier: 0BSD
+
+root = true
+
+[*]
+indent_style = tab
+end_of_line = lf
+charset = utf-8
+spelling_language = en-US
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# Buf CLI insists on two spaces indentation
+# <https://protobuf.dev/programming-guides/style/>
+[*.proto]
+indent_style = space
+indent_size = 2

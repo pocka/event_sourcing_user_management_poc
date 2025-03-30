@@ -1,0 +1,20 @@
+# Copyright 2025 Shota FUJI
+#
+# This source code is licensed under Zero-Clause BSD License.
+# You can find a copy of the Zero-Clause BSD License at LICENSES/0BSD.txt
+# You may also obtain a copy of the Zero-Clause BSD License at
+# <https://opensource.org/license/0bsd>
+#
+# SPDX-License-Identifier: 0BSD
+#
+# ===
+#
+# This file lists required tools and versions for development of this project.
+# Compatible version managers such as asdf-vm <https://asdf-vm.com/> and
+# mise-en-place <https://mise.jdx.dev/> loads this file and can install,
+# configure, and activate the toolings easily.
+
+buf 1.51.0
+dprint 0.49.1
+go 1.24.1
+protoc-gen-go 1.36.5

@@ -22,6 +22,7 @@ import (
 	"github.com/charmbracelet/log"
 	_ "modernc.org/sqlite"
 
+	"pocka.jp/x/event_sourcing_user_management_poc/routes"
 	"pocka.jp/x/event_sourcing_user_management_poc/setups"
 )
 
@@ -124,6 +125,8 @@ func main() {
 	addr := fmt.Sprintf("%s:%d", *host, *port)
 
 	logger.Infof("Starting HTTP server at http://%s", addr)
+
+	http.Handle("/", routes.Handler(db, logger))
 
 	logger.Fatal(http.ListenAndServe(addr, nil))
 }

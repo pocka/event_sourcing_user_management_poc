@@ -16,6 +16,8 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 
+	"pocka.jp/x/event_sourcing_user_management_poc/auth"
+	"pocka.jp/x/event_sourcing_user_management_poc/events"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/event"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/model"
 )
@@ -26,9 +28,9 @@ import (
 func CreateAlice(db *sql.DB) (string, error) {
 	id := uuid.New().String()
 
-	passwordHash, salt := hashPassword("Alice's password")
+	passwordHash, salt := auth.HashPasswordWithRandomSalt("Alice's password")
 
-	if err := insertEvents(db, []proto.Message{
+	if err := events.Insert(db, []proto.Message{
 		&event.UserCreated{
 			Id:          proto.String(id),
 			DisplayName: proto.String("Alice"),

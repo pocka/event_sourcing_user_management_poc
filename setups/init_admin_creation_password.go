@@ -16,6 +16,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"pocka.jp/x/event_sourcing_user_management_poc/auth"
+	"pocka.jp/x/event_sourcing_user_management_poc/events"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/event"
 )
 
@@ -26,9 +28,9 @@ import (
 func InitAdminCreationPassword(db *sql.DB) (string, error) {
 	password := rand.Text()
 
-	passwordHash, salt := hashPassword(password)
+	passwordHash, salt := auth.HashPasswordWithRandomSalt(password)
 
-	if err := insertEvents(db, []proto.Message{
+	if err := events.Insert(db, []proto.Message{
 		&event.InitialAdminCreationPasswordCreated{
 			PasswordHash: passwordHash,
 			Salt:         salt,

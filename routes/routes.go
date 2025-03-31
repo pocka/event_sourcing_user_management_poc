@@ -15,6 +15,7 @@ import (
 	_ "embed"
 	"fmt"
 	"net/http"
+	"html/template"
 
 	"github.com/charmbracelet/log"
 	"github.com/google/uuid"
@@ -30,8 +31,20 @@ import (
 //go:embed initial_admin_creation.html
 var initialAdminCreationHtml string
 
-func Handler(db *sql.DB, logger *log.Logger) http.Handler {
+//go:embed logged_in_admin.html.tmpl
+var loggedInAdminHtmlTmpl string
+
+type loggedInAdminPipeline struct {
+	DisplayName string
+}
+
+func Handler(db *sql.DB, logger *log.Logger) (http.Handler, error) {
 	mux := http.NewServeMux()
+
+	loggedInAdminHtml, err := template.New("loggedInAdminHtml").Parse(loggedInAdminHtmlTmpl)
+	if err != nil {
+		return nil, err
+	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		events, err := events.List(db)
@@ -47,7 +60,9 @@ func Handler(db *sql.DB, logger *log.Logger) http.Handler {
 			return
 		}
 
-		fmt.Fprintf(w, "TODO")
+		loggedInAdminHtml.Execute(w, loggedInAdminPipeline{
+			DisplayName: "John Doe",
+		})
 	})
 
 	mux.HandleFunc("/initial-admin", func(w http.ResponseWriter, r *http.Request) {
@@ -124,5 +139,5 @@ func Handler(db *sql.DB, logger *log.Logger) http.Handler {
 		http.Redirect(w, r, "/", http.StatusFound)
 	})
 
-	return mux
+	return mux, nil
 }

@@ -126,7 +126,12 @@ func main() {
 
 	logger.Infof("Starting HTTP server at http://%s", addr)
 
-	http.Handle("/", routes.Handler(db, logger))
+	handler, err :=routes.Handler(db, logger)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	http.Handle("/", handler)
 
 	logger.Fatal(http.ListenAndServe(addr, nil))
 }

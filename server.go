@@ -26,7 +26,7 @@ import (
 //go:embed init.sql
 var initSQL string
 
-var verbose = flag.Bool("verbose", false, "Output debug logs")
+var noVerbose = flag.Bool("noverbose", false, "Suppress debug logs")
 
 var shouldCreateInitAdminCreationPassword = flag.Bool(
 	"init-admin-creation-password", false, "Whether generate a password for initial admin user creation",
@@ -76,7 +76,7 @@ func main() {
 	logger := createLogger()
 
 	flag.Parse()
-	if *verbose {
+	if !*noVerbose {
 		logger.SetLevel(log.DebugLevel)
 	}
 

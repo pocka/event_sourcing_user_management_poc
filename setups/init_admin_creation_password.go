@@ -28,23 +28,13 @@ func InitAdminCreationPassword(db *sql.DB) (string, error) {
 
 	passwordHash, salt := hashPassword(password)
 
-	ev := &event.InitialAdminCreationPasswordCreated{
-		PasswordHash: passwordHash,
-		Salt:         salt,
-	}
-
-	data, err := proto.Marshal(ev)
-	if err != nil {
-		return "", fmt.Errorf("Failed to encode InitialAdminCreationPasswordCreated message: %s", err)
-	}
-
-	stmt, err := db.Prepare("INSERT OR ABORT INTO user_events (payload) VALUES (?)")
-	if err != nil {
-		return "", fmt.Errorf("Failed to prepare INSERT query: %s", err)
-	}
-
-	if _, err := stmt.Exec(data); err != nil {
-		return "", fmt.Errorf("Failed to INSERT InitialAdminCreationPasswordCreated: %s", err)
+	if err := insertEvents(db, []proto.Message{
+		&event.InitialAdminCreationPasswordCreated{
+			PasswordHash: passwordHash,
+			Salt:         salt,
+		},
+	}); err != nil {
+		return "", fmt.Errorf("Unable to create initial admin creation password: %s", err)
 	}
 
 	return password, nil

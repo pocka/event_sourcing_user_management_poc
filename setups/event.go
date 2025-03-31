@@ -27,21 +27,23 @@ func insertEvents(db *sql.DB, events []proto.Message) error {
 	}
 	defer tx.Rollback()
 
-	// TODO: Add event name column to events table
-	stmt, err := tx.Prepare("INSERT OR ABORT INTO user_events (payload) VALUES (?)")
+	stmt, err := tx.Prepare("INSERT OR ABORT INTO user_events (payload, event_name) VALUES (?, ?)")
 	if err != nil {
 		return fmt.Errorf("Failed to prepare INSERT statement for event insertion: %s", err)
 	}
 
 	for _, event := range events {
-		eventName := reflect.TypeOf(event).Name()
+		// event is proto.Message, which is interface type. So we have to
+		// get the type of the one it points to. Without "Indirect()", we get
+		// something like "*event.UserCreated"
+		eventName := reflect.Indirect(reflect.ValueOf(event)).Type().Name()
 
 		data, err := proto.Marshal(event)
 		if err != nil {
 			return fmt.Errorf("Serializing of %s failed: %s", eventName, err)
 		}
 
-		if _, err := stmt.Exec(data); err != nil {
+		if _, err := stmt.Exec(data, eventName); err != nil {
 			return fmt.Errorf("Failed to INSERT %s: %s", eventName, err)
 		}
 	}

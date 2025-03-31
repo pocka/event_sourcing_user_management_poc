@@ -37,6 +37,7 @@ func CreateAlice(db *sql.DB) (string, error) {
 			Email:       proto.String("alice@example.com"),
 		},
 		&event.PasswordLoginConfigured{
+			UserId:       proto.String(id),
 			PasswordHash: passwordHash,
 			Salt:         salt,
 		},

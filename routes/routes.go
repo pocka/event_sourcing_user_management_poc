@@ -14,7 +14,9 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/charmbracelet/log"
 	"github.com/google/uuid"
@@ -25,13 +27,30 @@ import (
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/event"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/model"
 	"pocka.jp/x/event_sourcing_user_management_poc/projections/initial_admin_creation_password"
+	"pocka.jp/x/event_sourcing_user_management_poc/projections/users"
 )
 
 //go:embed initial_admin_creation.html
 var initialAdminCreationHtml string
 
-func Handler(db *sql.DB, logger *log.Logger) http.Handler {
+//go:embed logged_in.html.tmpl
+var loggedInHTMLTmpl string
+
+//go:embed login.html
+var loginHTML string
+
+type loggedInAdminPipeline struct {
+	DisplayName string
+	Role        string
+}
+
+func Handler(db *sql.DB, logger *log.Logger) (http.Handler, error) {
 	mux := http.NewServeMux()
+
+	loggedInAdminHtml, err := template.New("loggedInAdminHtml").Parse(loggedInHTMLTmpl)
+	if err != nil {
+		return nil, err
+	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		events, err := events.List(db)
@@ -47,7 +66,29 @@ func Handler(db *sql.DB, logger *log.Logger) http.Handler {
 			return
 		}
 
-		fmt.Fprintf(w, "TODO")
+		id, err := r.Cookie("id")
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			fmt.Fprint(w, loginHTML)
+			return
+		}
+
+		users := users.ListFromUserEvents(events)
+
+		for _, user := range users {
+			// No real auth. No security.
+			if user.ID == id.Value {
+				loggedInAdminHtml.Execute(w, loggedInAdminPipeline{
+					DisplayName: user.DisplayName,
+					Role:        user.Role.String(),
+				})
+				return
+			}
+		}
+
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprint(w, loginHTML)
+		return
 	})
 
 	mux.HandleFunc("/initial-admin", func(w http.ResponseWriter, r *http.Request) {
@@ -101,6 +142,7 @@ func Handler(db *sql.DB, logger *log.Logger) http.Handler {
 				Email:       proto.String(email),
 			},
 			&event.PasswordLoginConfigured{
+				UserId:       proto.String(id),
 				PasswordHash: pwHash,
 				Salt:         salt,
 			},
@@ -124,5 +166,58 @@ func Handler(db *sql.DB, logger *log.Logger) http.Handler {
 		http.Redirect(w, r, "/", http.StatusFound)
 	})
 
-	return mux
+	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+
+		events, err := events.List(db)
+		if err != nil {
+			logger.Error(err)
+			http.Error(w, "Server error: event loading failure", http.StatusInternalServerError)
+			return
+		}
+
+		users := users.ListFromUserEvents(events)
+
+		email := r.PostForm.Get("email")
+		password := r.PostForm.Get("password")
+
+		if email == "" || password == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, loginHTML)
+			return
+		}
+
+		for _, user := range users {
+			// No real auth. No security.
+			if user.Email == email && user.PasswordLogin != nil {
+				hash := auth.HashPassword(password, user.PasswordLogin.Salt)
+				if bytes.Equal(user.PasswordLogin.Hash, hash) {
+					// This project is PoC for event sourcing. UI and security is completely out-of-scope.
+					http.SetCookie(w, &http.Cookie{
+						Name:  "id",
+						Value: user.ID,
+					})
+
+					http.Redirect(w, r, "/", http.StatusFound)
+					return
+				}
+			}
+		}
+
+		w.WriteHeader(http.StatusUnauthorized)
+		fmt.Fprint(w, loginHTML)
+		return
+	})
+
+	mux.HandleFunc("/logout", func(w http.ResponseWriter, r *http.Request) {
+		http.SetCookie(w, &http.Cookie{
+			Name:    "id",
+			Value:   "",
+			Expires: time.Now(),
+		})
+
+		http.Redirect(w, r, "/", http.StatusFound)
+	})
+
+	return mux, nil
 }

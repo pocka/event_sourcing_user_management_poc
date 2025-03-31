@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!--
+Copyright 2025 Shota FUJI
+
+This source code is licensed under Zero-Clause BSD License.
+You can find a copy of the Zero-Clause BSD License at LICENSES/0BSD.txt
+You may also obtain a copy of the Zero-Clause BSD License at
+<https://opensource.org/license/0bsd>
+
+SPDX-License-Identifier: 0BSD
+-->
+<html lang="en-US">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Logged In</title>
+	</head>
+	<body>
+		<main>
+			<h1>Logged in as {{ .DisplayName }}</h1>
+			<p>Role: {{ .Role }}</p>
+			<nav>
+				<ul>
+					<li>
+						<a href="/logout">Logout</a>
+					</li>
+				</ul>
+			</nav>
+		</main>
+	</body>
+</html>
+

@@ -7,7 +7,7 @@
 //
 // SPDX-License-Identifier: 0BSD
 
-package setups
+package events
 
 import (
 	"context"
@@ -18,7 +18,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func insertEvents(db *sql.DB, events []proto.Message) error {
+func Insert(db *sql.DB, events []proto.Message) error {
 	ctx := context.Background()
 
 	tx, err := db.BeginTx(ctx, nil)

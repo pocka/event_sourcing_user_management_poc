@@ -14,7 +14,6 @@ import (
 	"database/sql"
 	"fmt"
 
-	"golang.org/x/crypto/argon2"
 	"google.golang.org/protobuf/proto"
 
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/event"
@@ -27,13 +26,7 @@ import (
 func InitAdminCreationPassword(db *sql.DB) (string, error) {
 	password := rand.Text()
 
-	salt := make([]byte, 32)
-	// rand.Read never returns an error.
-	// https://pkg.go.dev/crypto/rand@go1.24.1#Read
-	rand.Read(salt)
-
-	// Parameters recommended in RFC (according to Go docs)
-	passwordHash := argon2.IDKey([]byte(password), salt, 1, 64*1024, 4, 32)
+	passwordHash, salt := hashPassword(password)
 
 	ev := &event.InitialAdminCreationPasswordCreated{
 		PasswordHash: passwordHash,

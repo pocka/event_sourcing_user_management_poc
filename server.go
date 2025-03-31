@@ -13,6 +13,8 @@ import (
 	"database/sql"
 	_ "embed"
 	"flag"
+	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -27,6 +29,10 @@ import (
 var initSQL string
 
 var noVerbose = flag.Bool("noverbose", false, "Suppress debug logs")
+
+var port = flag.Uint("port", 8080, "TCP port a web server listens to")
+
+var host = flag.String("host", "localhost", "Hostname to bind a web server to")
 
 var shouldCreateInitAdminCreationPassword = flag.Bool(
 	"init-admin-creation-password", false, "Whether generate a password for initial admin user creation",
@@ -114,4 +120,10 @@ func main() {
 
 		logger.Infof("Created admin user Alice. ID=%s", id)
 	}
+
+	addr := fmt.Sprintf("%s:%d", *host, *port)
+
+	logger.Infof("Starting HTTP server at http://%s", addr)
+
+	logger.Fatal(http.ListenAndServe(addr, nil))
 }

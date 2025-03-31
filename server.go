@@ -40,7 +40,11 @@ var shouldCreateInitAdminCreationPassword = flag.Bool(
 )
 
 var shouldCreateAlice = flag.Bool(
-	"create-alice", false, "Create an admin user \"Alice/Alice's password\"?",
+	"create-alice", false, "Create an admin user \"alice@example.com/Alice's password\"?",
+)
+
+var shouldCreateBob = flag.Bool(
+	"create-bob", false, "Create a viewer user \"bob@example.com/Bob's password\"?",
 )
 
 // charmbracelet/log uses 256-color for default styles.
@@ -120,6 +124,17 @@ func main() {
 		}
 
 		logger.Infof("Created admin user Alice. ID=%s", id)
+	}
+
+	if *shouldCreateBob {
+		logger.Debug("Creating viewer user Bob...")
+
+		id, err := setups.CreateBob(db)
+		if err != nil {
+			logger.Fatal(err)
+		}
+
+		logger.Infof("Created viewer user Bob. ID=%s", id)
 	}
 
 	addr := fmt.Sprintf("%s:%d", *host, *port)

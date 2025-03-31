@@ -32,6 +32,10 @@ var shouldCreateInitAdminCreationPassword = flag.Bool(
 	"init-admin-creation-password", false, "Whether generate a password for initial admin user creation",
 )
 
+var shouldCreateAlice = flag.Bool(
+	"create-alice", false, "Create an admin user \"Alice/Alice's password\"?",
+)
+
 // charmbracelet/log uses 256-color for default styles.
 // In other words, they ignore common terminal emulator's palette and uses
 // semi-hard-coded color. Unsafe defaults.
@@ -98,5 +102,16 @@ func main() {
 		}
 
 		logger.Infof("Use this password to create initial user: %s", password)
+	}
+
+	if *shouldCreateAlice {
+		logger.Debug("Creating admin user Alice...")
+
+		id, err := setups.CreateAlice(db)
+		if err != nil {
+			logger.Fatal(err)
+		}
+
+		logger.Infof("Created admin user Alice. ID=%s", id)
 	}
 }

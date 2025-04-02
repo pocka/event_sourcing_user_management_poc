@@ -53,15 +53,16 @@ func Handler(db *sql.DB, logger *log.Logger) (http.Handler, error) {
 	}
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		events, err := events.List(db)
+		initialAdminPass, _, err := initial_admin_creation_password.GetProjection(db)
 		if err != nil {
-			logger.Error(err)
-			http.Error(w, "Server error: event loading failure", http.StatusInternalServerError)
+			logger.Errorf("Error loading initial admin creation password: %s", err)
+			w.Header().Add("Content-Type", "text/html;charset=utf-8")
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, loginHTML)
 			return
 		}
 
-		initialAdminPass := initial_admin_creation_password.GetFromUserEvents(events)
-		if initialAdminPass != nil {
+		if initialAdminPass.PasswordHash != nil {
 			fmt.Fprint(w, initialAdminCreationHtml)
 			return
 		}
@@ -103,15 +104,16 @@ func Handler(db *sql.DB, logger *log.Logger) (http.Handler, error) {
 			return
 		}
 
-		evs, err := events.List(db)
+		initialAdminPass, _, err := initial_admin_creation_password.GetProjection(db)
 		if err != nil {
-			logger.Error(err)
-			http.Error(w, "Server error: event loading failure", http.StatusInternalServerError)
+			logger.Errorf("Error loading initial admin creation password: %s", err)
+			w.Header().Add("Content-Type", "text/html;charset=utf-8")
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, loginHTML)
 			return
 		}
 
-		initialAdminPass := initial_admin_creation_password.GetFromUserEvents(evs)
-		if initialAdminPass == nil {
+		if initialAdminPass.PasswordHash == nil {
 			logger.Debug("Found no active initial admin creation password at POST /initial-admin, redirecting")
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
@@ -131,7 +133,7 @@ func Handler(db *sql.DB, logger *log.Logger) (http.Handler, error) {
 		}
 
 		initPwHash := auth.HashPassword(initPassword, initialAdminPass.Salt)
-		if !bytes.Equal(initialAdminPass.Hash, initPwHash) {
+		if !bytes.Equal(initialAdminPass.PasswordHash, initPwHash) {
 			w.WriteHeader(http.StatusUnauthorized)
 			fmt.Fprint(w, initialAdminCreationHtml)
 			return
@@ -164,14 +166,21 @@ func Handler(db *sql.DB, logger *log.Logger) (http.Handler, error) {
 		}
 
 		go func() {
-			logger.Debug("Creating snapshot (trigger=initial admin creation)")
+			logger.Debug("Creating initial admin creation password snapshot (trigger=initial admin creation)")
 
-			err := users.SaveSnapshot(db)
-			if err != nil {
-				logger.Errorf("Failed to update users snapshot: %s", err)
+			if err := initial_admin_creation_password.SaveSnapshot(db); err != nil {
+				logger.Warnf("Failed to update initial admin creation password snapshot: %s", err)
+			} else {
+				logger.Debug("Created initial admin creation password snapshot (trigger=initial admin creation)")
 			}
 
-			logger.Debug("Created snapshot (trigger=initial admin creation)")
+			logger.Debug("Creating snapshot (trigger=initial admin creation)")
+
+			if err := users.SaveSnapshot(db); err != nil {
+				logger.Warnf("Failed to create user snapshot: %s", err)
+			} else {
+				logger.Debug("Created snapshot (trigger=initial admin creation)")
+			}
 		}()
 
 		// This project is PoC for event sourcing. UI and security is completely out-of-scope.

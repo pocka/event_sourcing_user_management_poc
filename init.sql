@@ -19,3 +19,10 @@ CREATE TABLE users_snapshots (
 	-- Protobuf wire format
 	payload BLOB
 );
+
+CREATE TABLE initial_admin_creation_password_snapshots (
+	-- Which event is this snapshot taken at?
+	event_seq INTEGER PRIMARY KEY ON CONFLICT ROLLBACK,
+	-- Protobuf wire format
+	payload BLOB
+);

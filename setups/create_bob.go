@@ -21,6 +21,7 @@ import (
 	"pocka.jp/x/event_sourcing_user_management_poc/events"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/event"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/model"
+	"pocka.jp/x/event_sourcing_user_management_poc/projections/initial_admin_creation_password"
 	"pocka.jp/x/event_sourcing_user_management_poc/projections/users"
 )
 
@@ -52,14 +53,21 @@ func CreateBob(db *sql.DB, logger *log.Logger) (string, error) {
 	}
 
 	go func() {
-		logger.Debug("Creating snapshot (trigger=create bob)")
+		logger.Debug("Creating initial admin creation password snapshot (trigger=create alice)")
 
-		err := users.SaveSnapshot(db)
-		if err != nil {
-			logger.Warnf("Failed to create user snapshot: %s", err)
+		if err := initial_admin_creation_password.SaveSnapshot(db); err != nil {
+			logger.Warnf("Failed to update initial admin creation password snapshot: %s", err)
+		} else {
+			logger.Debug("Created initial admin creation password snapshot (trigger=create alice)")
 		}
 
-		logger.Debug("Created snapshot (trigger=create bob)")
+		logger.Debug("Creating snapshot (trigger=create alice)")
+
+		if err := users.SaveSnapshot(db); err != nil {
+			logger.Warnf("Failed to create user snapshot: %s", err)
+		} else {
+			logger.Debug("Created snapshot (trigger=create alice)")
+		}
 	}()
 
 	return id, nil

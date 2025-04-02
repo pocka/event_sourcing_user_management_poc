@@ -17,31 +17,42 @@ import (
 
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/event"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/model"
+	"pocka.jp/x/event_sourcing_user_management_poc/gen/projection"
 )
 
+func build(events []proto.Message) *projection.InitialAdminCreationPassword {
+	var p projection.InitialAdminCreationPassword
+
+	for _, e := range events {
+		apply(e, &p)
+	}
+
+	return &p
+}
+
 func TestReturnsNonNil(t *testing.T) {
-	password := GetFromUserEvents([]proto.Message{
+	p := build([]proto.Message{
 		&event.InitialAdminCreationPasswordCreated{
 			PasswordHash: []byte{0, 1, 2},
 			Salt:         []byte{3, 4, 5},
 		},
 	})
 
-	if password == nil {
+	if p.PasswordHash == nil {
 		t.Error("Expected found password, got nil")
 	}
 
-	if !bytes.Equal([]byte{0, 1, 2}, password.Hash) {
-		t.Errorf("Hash does not match to [0,1,2]: %v", password.Hash)
+	if !bytes.Equal([]byte{0, 1, 2}, p.PasswordHash) {
+		t.Errorf("Hash does not match to [0,1,2]: %v", p.PasswordHash)
 	}
 
-	if !bytes.Equal([]byte{3, 4, 5}, password.Salt) {
-		t.Errorf("Salt does not match to [3,4,5]: %v", password.Salt)
+	if !bytes.Equal([]byte{3, 4, 5}, p.Salt) {
+		t.Errorf("Salt does not match to [3,4,5]: %v", p.Salt)
 	}
 }
 
 func TestAdminCreationExpiresOne(t *testing.T) {
-	password := GetFromUserEvents([]proto.Message{
+	p := build([]proto.Message{
 		&event.InitialAdminCreationPasswordCreated{
 			PasswordHash: []byte{0, 1, 2},
 			Salt:         []byte{3, 4, 5},
@@ -52,13 +63,13 @@ func TestAdminCreationExpiresOne(t *testing.T) {
 		},
 	})
 
-	if password != nil {
-		t.Errorf("Expected nil, got %v", password)
+	if p.PasswordHash != nil {
+		t.Errorf("Expected nil, got %v", p)
 	}
 }
 
 func TestNonAdminCreationShouldNotExpiresOne(t *testing.T) {
-	password := GetFromUserEvents([]proto.Message{
+	p := build([]proto.Message{
 		&event.InitialAdminCreationPasswordCreated{
 			PasswordHash: []byte{0, 1, 2},
 			Salt:         []byte{3, 4, 5},
@@ -69,7 +80,7 @@ func TestNonAdminCreationShouldNotExpiresOne(t *testing.T) {
 		},
 	})
 
-	if password == nil {
+	if p.PasswordHash == nil {
 		t.Errorf("Expected non-nil, got nil")
 	}
 }

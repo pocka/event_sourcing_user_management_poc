@@ -37,7 +37,7 @@ func List(db *sql.DB) ([]proto.Message, error) {
 		return []proto.Message{}, nil
 	}
 
-	rows, err := tx.Query("SELECT event_name, payload FROM user_events ORDER BY seq ASC")
+	rows, err := tx.Query("SELECT seq, event_name, payload FROM user_events ORDER BY seq ASC")
 	if err != nil {
 		return nil, fmt.Errorf("Failed to SELECT user_events: %s", err)
 	}
@@ -48,41 +48,55 @@ func List(db *sql.DB) ([]proto.Message, error) {
 			return nil, fmt.Errorf("Number of events is less than rowCount")
 		}
 
-		var eventName string
-		var payload []byte
-		if err := rows.Scan(&eventName, &payload); err != nil {
-			return nil, fmt.Errorf("Failed to scan user event: %s", err)
+		event, _, err := ScanEvent(rows)
+		if err != nil {
+			return nil, err
 		}
 
-		switch eventName {
-		case "InitialAdminCreationPasswordCreated":
-			var event event.InitialAdminCreationPasswordCreated
-			if err := proto.Unmarshal(payload, &event); err != nil {
-				return nil, fmt.Errorf("Illegal InitialAdminCreationPasswordCreated event: %s", err)
-			}
-			events[i] = &event
-		case "UserCreated":
-			var event event.UserCreated
-			if err := proto.Unmarshal(payload, &event); err != nil {
-				return nil, fmt.Errorf("Illegal UserCreated event: %s", err)
-			}
-			events[i] = &event
-		case "PasswordLoginConfigured":
-			var event event.PasswordLoginConfigured
-			if err := proto.Unmarshal(payload, &event); err != nil {
-				return nil, fmt.Errorf("Illegal PasswordLoginConfigured event: %s", err)
-			}
-			events[i] = &event
-		case "RoleAssigned":
-			var event event.RoleAssigned
-			if err := proto.Unmarshal(payload, &event); err != nil {
-				return nil, fmt.Errorf("Illegal RoleAssigned event: %s", err)
-			}
-			events[i] = &event
-		default:
-			return nil, fmt.Errorf("Unknown event in user_events: name=%s", eventName)
-		}
+		events[i] = event
 	}
 
 	return events, nil
+}
+
+type Scanner interface {
+	Scan(dst ...any) error
+}
+
+func ScanEvent(scanner Scanner) (proto.Message, int, error) {
+	var seq int
+	var eventName string
+	var payload []byte
+	if err := scanner.Scan(&seq, &eventName, &payload); err != nil {
+		return nil, 0, fmt.Errorf("Failed to scan user event: %s", err)
+	}
+
+	switch eventName {
+	case "InitialAdminCreationPasswordCreated":
+		var event event.InitialAdminCreationPasswordCreated
+		if err := proto.Unmarshal(payload, &event); err != nil {
+			return nil, 0, fmt.Errorf("Illegal InitialAdminCreationPasswordCreated event: %s", err)
+		}
+		return &event, seq, nil
+	case "UserCreated":
+		var event event.UserCreated
+		if err := proto.Unmarshal(payload, &event); err != nil {
+			return nil, 0, fmt.Errorf("Illegal UserCreated event: %s", err)
+		}
+		return &event, seq, nil
+	case "PasswordLoginConfigured":
+		var event event.PasswordLoginConfigured
+		if err := proto.Unmarshal(payload, &event); err != nil {
+			return nil, 0, fmt.Errorf("Illegal PasswordLoginConfigured event: %s", err)
+		}
+		return &event, seq, nil
+	case "RoleAssigned":
+		var event event.RoleAssigned
+		if err := proto.Unmarshal(payload, &event); err != nil {
+			return nil, 0, fmt.Errorf("Illegal RoleAssigned event: %s", err)
+		}
+		return &event, seq, nil
+	default:
+		return nil, 0, fmt.Errorf("Unknown event in user_events: name=%s", eventName)
+	}
 }

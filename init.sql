@@ -12,3 +12,10 @@ CREATE TABLE user_events (
 	event_name TEXT NOT NULL ON CONFLICT ROLLBACK,
 	payload BLOB
 );
+
+CREATE TABLE users_snapshots (
+	-- Which event is this snapshot taken at?
+	event_seq INTEGER PRIMARY KEY ON CONFLICT ROLLBACK,
+	-- Protobuf wire format
+	payload BLOB
+);

@@ -10,66 +10,126 @@
 package users
 
 import (
+	"context"
+	"database/sql"
+	"fmt"
+
 	"google.golang.org/protobuf/proto"
 
+	"pocka.jp/x/event_sourcing_user_management_poc/events"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/event"
-	"pocka.jp/x/event_sourcing_user_management_poc/gen/model"
+	"pocka.jp/x/event_sourcing_user_management_poc/gen/projection"
 )
 
-type passwordLogin struct {
-	Hash []byte
-	Salt []byte
-}
+func GetProjection(db *sql.DB) (*projection.UsersProjection, int, error) {
+	ctx := context.Background()
 
-type user struct {
-	ID          string
-	DisplayName string
-	Email       string
+	var p projection.UsersProjection
 
-	PasswordLogin *passwordLogin
-	Role          *model.Role
-}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, 0, fmt.Errorf("Failed to begin transaction for UsersProjection: %s", err)
+	}
+	defer tx.Rollback()
 
-func ListFromUserEvents(events []proto.Message) []user {
-	users := make(map[string]*user)
+	var eventSeq int
+	var payload []byte
 
-	for _, e := range events {
-		switch v := e.(type) {
-		case *event.UserCreated:
-			users[*v.Id] = &user{
-				ID:          *v.Id,
-				DisplayName: *v.DisplayName,
-				Email:       *v.Email,
-			}
-		case *event.PasswordLoginConfigured:
-			if v.UserId == nil {
-				break
-			}
-
-			found := users[*v.UserId]
-			if found != nil {
-				found.PasswordLogin = &passwordLogin{
-					Hash: v.PasswordHash,
-					Salt: v.Salt,
-				}
-			}
-		case *event.RoleAssigned:
-			if v.UserId == nil {
-				break
-			}
-
-			found := users[*v.UserId]
-			if found != nil {
-				found.Role = v.Role
-			}
+	err = tx.QueryRow("SELECT event_seq, payload FROM users_snapshots ORDER BY event_seq DESC LIMIT 1").Scan(&eventSeq, &payload)
+	if err == sql.ErrNoRows {
+		p = projection.UsersProjection{
+			Users: []*projection.User{},
+		}
+		eventSeq = -1
+	} else if err != nil {
+		return nil, 0, fmt.Errorf("Failed to get latest snapshot: %s", err)
+	} else {
+		if err := proto.Unmarshal(payload, &p); err != nil {
+			return nil, 0, fmt.Errorf("Failed to decode latest snapshot: %s", err)
 		}
 	}
 
-	ret := make([]user, 0, len(users))
-
-	for _, u := range users {
-		ret = append(ret, *u)
+	stmt, err := tx.Prepare("SELECT seq, event_name, payload FROM user_events WHERE seq > ? ORDER BY seq ASC")
+	if err != nil {
+		return nil, 0, fmt.Errorf("Failed to prepare event fetching query: %s", err)
 	}
 
-	return ret
+	maxSeq := -1
+	rows, err := stmt.Query(eventSeq)
+	for rows.Next() {
+		ev, seq, err := events.ScanEvent(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		maxSeq = max(maxSeq, seq)
+
+		apply(ev, &p)
+	}
+
+	return &p, maxSeq, nil
+}
+
+func apply(ev proto.Message, p *projection.UsersProjection) {
+	switch v := ev.(type) {
+	case *event.UserCreated:
+		p.Users = append(p.Users, &projection.User{
+			Id:          v.Id,
+			DisplayName: v.DisplayName,
+			Email:       v.Email,
+		})
+		return
+	case *event.PasswordLoginConfigured:
+		if v.UserId == nil {
+			return
+		}
+
+		for _, user := range p.Users {
+			if *user.Id != *v.UserId {
+				continue
+			}
+
+			user.PasswordLogin = &projection.User_PasswordLogin{
+				Hash: v.PasswordHash,
+				Salt: v.Salt,
+			}
+			return
+		}
+		return
+	case *event.RoleAssigned:
+		if v.UserId == nil {
+			return
+		}
+
+		for _, user := range p.Users {
+			if *user.Id != *v.UserId {
+				continue
+			}
+
+			user.Role = v.Role
+			return
+		}
+		return
+	}
+}
+
+func SaveSnapshot(db *sql.DB) error {
+	p, seq, err := GetProjection(db)
+	if err != nil {
+		return err
+	}
+
+	stmt, err := db.Prepare("INSERT OR ABORT INTO users_snapshots (event_seq, payload) VALUES (?, ?)")
+	if err != nil {
+		return err
+	}
+
+	payload, err := proto.Marshal(p)
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.Exec(seq, payload)
+
+	return err
 }

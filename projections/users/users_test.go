@@ -17,10 +17,21 @@ import (
 
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/event"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/model"
+	"pocka.jp/x/event_sourcing_user_management_poc/gen/projection"
 )
 
+func build(events []proto.Message) *projection.UsersProjection {
+	var p projection.UsersProjection
+
+	for _, e := range events {
+		apply(e, &p)
+	}
+
+	return &p
+}
+
 func TestIdentityOnly(t *testing.T) {
-	users := ListFromUserEvents([]proto.Message{
+	p := build([]proto.Message{
 		&event.UserCreated{
 			Id:          proto.String("foo"),
 			DisplayName: proto.String("Foo"),
@@ -32,33 +43,33 @@ func TestIdentityOnly(t *testing.T) {
 		},
 	})
 
-	if len(users) != 1 {
-		t.Errorf("Expected 1 user, got %d", len(users))
+	if len(p.Users) != 1 {
+		t.Errorf("Expected 1 user, got %d", len(p.Users))
 	}
 
-	if users[0].ID != "foo" {
-		t.Errorf("Expected ID \"foo\", got \"%s\"", users[0].ID)
+	if *p.Users[0].Id != "foo" {
+		t.Errorf("Expected ID \"foo\", got \"%s\"", *p.Users[0].Id)
 	}
 
-	if users[0].DisplayName != "Foo" {
-		t.Errorf("Expected DisplayName \"Foo\", got \"%s\"", users[0].DisplayName)
+	if *p.Users[0].DisplayName != "Foo" {
+		t.Errorf("Expected DisplayName \"Foo\", got \"%s\"", *p.Users[0].DisplayName)
 	}
 
-	if users[0].Email != "foo@example.com" {
-		t.Errorf("Expected Email \"foo@example.com\", got \"%s\"", users[0].Email)
+	if *p.Users[0].Email != "foo@example.com" {
+		t.Errorf("Expected Email \"foo@example.com\", got \"%s\"", *p.Users[0].Email)
 	}
 
-	if users[0].Role != nil {
-		t.Errorf("Expected Role to be nil, got %v", users[0].Role)
+	if p.Users[0].Role != nil {
+		t.Errorf("Expected Role to be nil, got %v", p.Users[0].Role)
 	}
 
-	if users[0].PasswordLogin != nil {
-		t.Errorf("Expected Role to be nil, got %v", users[0].Role)
+	if p.Users[0].PasswordLogin != nil {
+		t.Errorf("Expected Role to be nil, got %v", p.Users[0].Role)
 	}
 }
 
 func TestWithRole(t *testing.T) {
-	users := ListFromUserEvents([]proto.Message{
+	p := build([]proto.Message{
 		&event.UserCreated{
 			Id:          proto.String("foo"),
 			DisplayName: proto.String("Foo"),
@@ -70,13 +81,13 @@ func TestWithRole(t *testing.T) {
 		},
 	})
 
-	if *users[0].Role != model.Role_ROLE_ADMIN {
-		t.Errorf("Expected Role_ROLE_ADMIN, got %v", users[0].Role.String())
+	if *p.Users[0].Role != model.Role_ROLE_ADMIN {
+		t.Errorf("Expected Role_ROLE_ADMIN, got %v", p.Users[0].Role.String())
 	}
 }
 
 func TestWithPWLogin(t *testing.T) {
-	users := ListFromUserEvents([]proto.Message{
+	p := build([]proto.Message{
 		&event.UserCreated{
 			Id:          proto.String("foo"),
 			DisplayName: proto.String("Foo"),
@@ -89,11 +100,11 @@ func TestWithPWLogin(t *testing.T) {
 		},
 	})
 
-	if !bytes.Equal(users[0].PasswordLogin.Hash, []byte{0, 1, 2}) {
-		t.Errorf("Expected [0,1,2], got %v", users[0].PasswordLogin.Hash)
+	if !bytes.Equal(p.Users[0].PasswordLogin.Hash, []byte{0, 1, 2}) {
+		t.Errorf("Expected [0,1,2], got %v", p.Users[0].PasswordLogin.Hash)
 	}
 
-	if !bytes.Equal(users[0].PasswordLogin.Salt, []byte{3, 4, 5}) {
-		t.Errorf("Expected [3,4,5], got %v", users[0].PasswordLogin.Salt)
+	if !bytes.Equal(p.Users[0].PasswordLogin.Salt, []byte{3, 4, 5}) {
+		t.Errorf("Expected [3,4,5], got %v", p.Users[0].PasswordLogin.Salt)
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/charmbracelet/log"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 
@@ -20,12 +21,13 @@ import (
 	"pocka.jp/x/event_sourcing_user_management_poc/events"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/event"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/model"
+	"pocka.jp/x/event_sourcing_user_management_poc/projections/users"
 )
 
 // CreateBob creates a new viewer user named "Bob" with demo password of
 // "Bob's password".
 // CreateBob returns an ID of the created user on success.
-func CreateBob(db *sql.DB) (string, error) {
+func CreateBob(db *sql.DB, logger *log.Logger) (string, error) {
 	id := uuid.New().String()
 
 	passwordHash, salt := auth.HashPasswordWithRandomSalt("Bob's password")
@@ -48,6 +50,17 @@ func CreateBob(db *sql.DB) (string, error) {
 	}); err != nil {
 		return "", fmt.Errorf("Unable to create Bob: %s", err)
 	}
+
+	go func() {
+		logger.Debug("Creating snapshot (trigger=create bob)")
+
+		err := users.SaveSnapshot(db)
+		if err != nil {
+			logger.Warnf("Failed to create user snapshot: %s", err)
+		}
+
+		logger.Debug("Created snapshot (trigger=create bob)")
+	}()
 
 	return id, nil
 }

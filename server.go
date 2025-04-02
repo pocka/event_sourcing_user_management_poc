@@ -118,7 +118,7 @@ func main() {
 	if *shouldCreateAlice {
 		logger.Debug("Creating admin user Alice...")
 
-		id, err := setups.CreateAlice(db)
+		id, err := setups.CreateAlice(db, logger)
 		if err != nil {
 			logger.Fatal(err)
 		}
@@ -129,7 +129,7 @@ func main() {
 	if *shouldCreateBob {
 		logger.Debug("Creating viewer user Bob...")
 
-		id, err := setups.CreateBob(db)
+		id, err := setups.CreateBob(db, logger)
 		if err != nil {
 			logger.Fatal(err)
 		}

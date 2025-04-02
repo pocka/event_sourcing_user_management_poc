@@ -1,0 +1,29 @@
+// Copyright 2025 Shota FUJI
+//
+// This source code is licensed under Zero-Clause BSD License.
+// You can find a copy of the Zero-Clause BSD License at LICENSES/0BSD.txt
+// You may also obtain a copy of the Zero-Clause BSD License at
+// <https://opensource.org/license/0bsd>
+//
+// SPDX-License-Identifier: 0BSD
+
+edition = "2023";
+
+package projection;
+
+import "proto/model/role.proto";
+
+option go_package = "pocka.jp/x/event_sourcing_user_management_poc/gen/projection";
+
+message User {
+  string id = 1;
+  string display_name = 2;
+  string email = 3;
+  PasswordLogin password_login = 4;
+  model.Role role = 5;
+
+  message PasswordLogin {
+    bytes hash = 1;
+    bytes salt = 2;
+  }
+}

@@ -73,13 +73,19 @@ func Handler(db *sql.DB, logger *log.Logger) (http.Handler, error) {
 			return
 		}
 
-		users := users.ListFromUserEvents(events)
+		p, _, err := users.GetProjection(db)
+		if err != nil {
+			w.Header().Add("Content-Type", "text/html;charset=utf-8")
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, loginHTML)
+			return
+		}
 
-		for _, user := range users {
+		for _, user := range p.Users {
 			// No real auth. No security.
-			if user.ID == id.Value {
+			if *user.Id == id.Value {
 				loggedInAdminHtml.Execute(w, loggedInAdminPipeline{
-					DisplayName: user.DisplayName,
+					DisplayName: *user.DisplayName,
 					Role:        user.Role.String(),
 				})
 				return
@@ -157,6 +163,17 @@ func Handler(db *sql.DB, logger *log.Logger) (http.Handler, error) {
 			return
 		}
 
+		go func() {
+			logger.Debug("Creating snapshot (trigger=initial admin creation)")
+
+			err := users.SaveSnapshot(db)
+			if err != nil {
+				logger.Errorf("Failed to update users snapshot: %s", err)
+			}
+
+			logger.Debug("Created snapshot (trigger=initial admin creation)")
+		}()
+
 		// This project is PoC for event sourcing. UI and security is completely out-of-scope.
 		http.SetCookie(w, &http.Cookie{
 			Name:  "id",
@@ -169,14 +186,13 @@ func Handler(db *sql.DB, logger *log.Logger) (http.Handler, error) {
 	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 
-		events, err := events.List(db)
+		p, _, err := users.GetProjection(db)
 		if err != nil {
-			logger.Error(err)
-			http.Error(w, "Server error: event loading failure", http.StatusInternalServerError)
+			w.Header().Add("Content-Type", "text/html;charset=utf-8")
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, loginHTML)
 			return
 		}
-
-		users := users.ListFromUserEvents(events)
 
 		email := r.PostForm.Get("email")
 		password := r.PostForm.Get("password")
@@ -187,15 +203,15 @@ func Handler(db *sql.DB, logger *log.Logger) (http.Handler, error) {
 			return
 		}
 
-		for _, user := range users {
+		for _, user := range p.Users {
 			// No real auth. No security.
-			if user.Email == email && user.PasswordLogin != nil {
+			if *user.Email == email && user.PasswordLogin != nil {
 				hash := auth.HashPassword(password, user.PasswordLogin.Salt)
 				if bytes.Equal(user.PasswordLogin.Hash, hash) {
 					// This project is PoC for event sourcing. UI and security is completely out-of-scope.
 					http.SetCookie(w, &http.Cookie{
 						Name:  "id",
-						Value: user.ID,
+						Value: *user.Id,
 					})
 
 					http.Redirect(w, r, "/", http.StatusFound)

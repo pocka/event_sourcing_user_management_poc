@@ -13,6 +13,7 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/charmbracelet/log"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 
@@ -20,12 +21,13 @@ import (
 	"pocka.jp/x/event_sourcing_user_management_poc/events"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/event"
 	"pocka.jp/x/event_sourcing_user_management_poc/gen/model"
+	"pocka.jp/x/event_sourcing_user_management_poc/projections/users"
 )
 
 // CreateAlice creates a new admin user named "Alice" with demo password of
 // "Alice's password".
 // CreateAlice returns an ID of the created user on success.
-func CreateAlice(db *sql.DB) (string, error) {
+func CreateAlice(db *sql.DB, logger *log.Logger) (string, error) {
 	id := uuid.New().String()
 
 	passwordHash, salt := auth.HashPasswordWithRandomSalt("Alice's password")
@@ -48,6 +50,17 @@ func CreateAlice(db *sql.DB) (string, error) {
 	}); err != nil {
 		return "", fmt.Errorf("Unable to create Alice: %s", err)
 	}
+
+	go func() {
+		logger.Debug("Creating snapshot (trigger=create alice)")
+
+		err := users.SaveSnapshot(db)
+		if err != nil {
+			logger.Warnf("Failed to create user snapshot: %s", err)
+		}
+
+		logger.Debug("Created snapshot (trigger=create alice)")
+	}()
 
 	return id, nil
 }
